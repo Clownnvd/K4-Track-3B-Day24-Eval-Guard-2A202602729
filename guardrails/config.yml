@@ -2,7 +2,7 @@ colang_version: "1.0"
 
 models:
   - type: main
-    engine: gemini_openai
+    engine: openai_compatible_chat
     model: gemini-3.5-flash-lite
     parameters:
       model_name: gemini-3.5-flash-lite

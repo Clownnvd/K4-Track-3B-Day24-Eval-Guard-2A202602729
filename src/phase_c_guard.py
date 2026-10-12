@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import ADVERSARIAL_SET_PATH, GUARDRAILS_CONFIG_DIR, LATENCY_BUDGET_P95_MS, OPENAI_API_KEY, PRESIDIO_LANGUAGE, ROOT_DIR
 
 _LAST_NEMO_CALL_AT = 0.0
+PII_ENTITIES = frozenset(("VN_CCCD", "VN_PHONE", "EMAIL_ADDRESS"))
 
 
 async def _generate_with_quota(rails, **kwargs):
@@ -22,7 +23,14 @@ async def _generate_with_quota(rails, **kwargs):
     global _LAST_NEMO_CALL_AT
     gemini_endpoint = "generativelanguage.googleapis.com" in (
         os.getenv("OPENAI_API_BASE", "") + os.getenv("OPENAI_BASE_URL", ""))
-    interval = float(os.getenv("GEMINI_GUARD_MIN_INTERVAL_SECONDS", "4.5")) if OPENAI_API_KEY and gemini_endpoint else 0.0
+    groq_endpoint = "api.groq.com" in (
+        os.getenv("OPENAI_API_BASE", "") + os.getenv("OPENAI_BASE_URL", ""))
+    if OPENAI_API_KEY and gemini_endpoint:
+        interval = float(os.getenv("GEMINI_GUARD_MIN_INTERVAL_SECONDS", "4.5"))
+    elif OPENAI_API_KEY and groq_endpoint:
+        interval = float(os.getenv("GROQ_GUARD_MIN_INTERVAL_SECONDS", "3"))
+    else:
+        interval = 0.0
     for attempt in range(4):
         wait = interval - (time.monotonic() - _LAST_NEMO_CALL_AT)
         if wait > 0:
@@ -80,7 +88,11 @@ def pii_scan(text: str, analyzer=None, anonymizer=None) -> dict:
     """Return exact detected spans and the Presidio-anonymized text."""
     if analyzer is None or anonymizer is None:
         analyzer, anonymizer = setup_presidio()
-    detected = analyzer.analyze(text=text, language=PRESIDIO_LANGUAGE)
+    # English spaCy's PERSON and US_DRIVER_LICENSE recognizers mislabel
+    # ordinary Vietnamese policy questions; this lab protects these three
+    # explicit identifier classes only.
+    detected = [row for row in analyzer.analyze(text=text, language=PRESIDIO_LANGUAGE)
+                if row.entity_type in PII_ENTITIES]
     if not detected:
         return {"has_pii": False, "entities": [], "anonymized": text}
     entities = [
@@ -97,10 +109,21 @@ def setup_nemo_rails():
     from langchain_openai import ChatOpenAI
     from nemoguardrails.llm.providers import register_llm_provider
     from nemoguardrails import LLMRails, RailsConfig
-    # NeMo 0.10 chooses the legacy completions API for unknown OpenAI model
-    # names. Gemini's OpenAI-compatible endpoint supports chat completions.
-    register_llm_provider("gemini_openai", ChatOpenAI)
-    return LLMRails(RailsConfig.from_path(GUARDRAILS_CONFIG_DIR))
+    # NeMo 0.10 chooses legacy completions for unknown model names. Register
+    # the chat provider explicitly for Gemini, Groq, and other compatible APIs.
+    register_llm_provider("openai_compatible_chat", ChatOpenAI)
+    config = RailsConfig.from_path(GUARDRAILS_CONFIG_DIR)
+    selected_model = os.getenv("GUARD_MODEL")
+    if selected_model:
+        for model in config.models:
+            if model.type == "main":
+                model.model = selected_model
+                model.parameters["model_name"] = selected_model
+    if "api.groq.com" in (os.getenv("OPENAI_API_BASE", "") + os.getenv("OPENAI_BASE_URL", "")):
+        for prompt in config.prompts:
+            if str(prompt.task) in ("self_check_input", "self_check_output"):
+                prompt.max_tokens = 512
+    return LLMRails(config)
 
 
 def _stopped(result) -> bool:

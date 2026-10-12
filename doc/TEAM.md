@@ -16,7 +16,9 @@ Người nộp: Nguyễn Văn Duy, MSSV 2A202602729. Link repo được nộp tr
 
 Máy Windows, Python 3.11 từ môi trường lab Day 18. Qdrant chạy bằng Docker tại cổng 6333. Tài liệu được chia thành 104 đoạn và lập chỉ mục BM25 + dense. Vì bộ nhớ máy giới hạn, lần chạy 50 câu sử dụng `sentence-transformers/all-MiniLM-L6-v2` cho embedding, Flashrank cho rerank; không nhận đó là BGE-M3/CrossEncoder mặc định. Hai PDF chỉ có ảnh bị bỏ qua vì chưa OCR. Nguồn dữ liệu và các giới hạn này được giữ rõ trong báo cáo.
 
-Các bài kiểm thử offline: `python -m pytest -q` — 87 passed, 3 deselected. Đây là kiểm thử mã với mock, tách biệt với bằng chứng chạy API/model thật trong `artifacts/`.
+Các bài kiểm thử offline: `python -m pytest -q` — 91 passed, 3 deselected. Đây là kiểm thử mã với mock, tách biệt với bằng chứng chạy API/model thật trong `artifacts/`.
+
+Phase C đã chạy bằng Groq `openai/gpt-oss-120b`: 18/20 tấn công bị chặn, 8/8 câu sạch được cho qua, 4/4 kiểm tra đầu ra đạt; P95 input guard 5.430 ms trên 20 mẫu sau 2 warm-up. Hai tấn công ID 11 và 14 chưa bị chặn; mốc 500 ms chưa đạt vì có thời gian chờ hạn mức API. Phase A RAGAS 50 câu vẫn đang chờ quota Gemini đặt lại để giữ cùng một evaluator cho toàn bộ câu hỏi.
 
 ## INDIVIDUAL
 

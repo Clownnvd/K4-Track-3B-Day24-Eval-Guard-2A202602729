@@ -1,16 +1,36 @@
-"""Gemini transport, explicit opt-in, content-addressed cache; never reads gold answers."""
+"""OpenAI-compatible Gemini/Groq transport with a content-addressed cache."""
 import hashlib
 import json
 import os
 import threading
 import time
 from pathlib import Path
-from config import GEMINI_API_KEY, LLM_MODEL, LLM_PROVIDER
+from config import GEMINI_API_KEY, GROQ_API_KEY, LLM_MODEL, LLM_PROVIDER
 
 BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
+GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
 _REQUEST_LOCK = threading.Lock()
 _LAST_REQUEST_AT = 0.0
 DAILY_QUOTA_EXHAUSTED = False
+
+
+def normalize_ragas_json(text: str) -> str:
+    """Accept an object where RAGAS requires a one-element JSON list."""
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if isinstance(payload, dict):
+        if ("sentence_index" in payload and "simpler_statements" in payload) or (
+            "statement" in payload and "verdict" in payload
+        ):
+            return json.dumps([payload], ensure_ascii=False)
+        statements = payload.get("statements")
+        if isinstance(statements, list) and statements and all(
+            isinstance(item, dict) and "verdict" in item for item in statements
+        ):
+            return json.dumps(statements, ensure_ascii=False)
+    return text
 
 
 def _is_rate_limit(error):
@@ -21,7 +41,12 @@ def _is_rate_limit(error):
 def _request_with_rate_limit(api, **kwargs):
     """Serialize uncached calls and retry transient quota/server failures."""
     global _LAST_REQUEST_AT, DAILY_QUOTA_EXHAUSTED
-    interval = float(os.getenv('GEMINI_MIN_INTERVAL_SECONDS', '4.2')) if GEMINI_API_KEY else 0.0
+    if LLM_PROVIDER == 'gemini' and GEMINI_API_KEY:
+        interval = float(os.getenv('GEMINI_MIN_INTERVAL_SECONDS', '4.2'))
+    elif LLM_PROVIDER == 'groq' and GROQ_API_KEY:
+        interval = float(os.getenv('GROQ_MIN_INTERVAL_SECONDS', '8'))
+    else:
+        interval = 0.0
     with _REQUEST_LOCK:
         wait = interval - (time.monotonic() - _LAST_REQUEST_AT)
         if wait > 0:
@@ -41,10 +66,12 @@ def _request_with_rate_limit(api, **kwargs):
 
 
 def client():
-    if LLM_PROVIDER != 'gemini' or not GEMINI_API_KEY:
-        raise RuntimeError('Chưa cấu hình GEMINI_API_KEY cho bài lab.')
     from openai import OpenAI
-    return OpenAI(api_key=GEMINI_API_KEY, base_url=BASE_URL, max_retries=2, timeout=60)
+    if LLM_PROVIDER == 'gemini' and GEMINI_API_KEY:
+        return OpenAI(api_key=GEMINI_API_KEY, base_url=BASE_URL, max_retries=2, timeout=60)
+    if LLM_PROVIDER == 'groq' and GROQ_API_KEY:
+        return OpenAI(api_key=GROQ_API_KEY, base_url=GROQ_BASE_URL, max_retries=1, timeout=60)
+    raise RuntimeError('Chưa cấu hình khóa cho LLM_PROVIDER đã chọn.')
 
 
 def completion(messages, *, model=LLM_MODEL, json_output=False, temperature=0, cache_tag='generation'):
@@ -55,7 +82,9 @@ def completion(messages, *, model=LLM_MODEL, json_output=False, temperature=0, c
         return json.loads(path.read_text(encoding='utf-8'))['text']
     kwargs = {'response_format': {'type': 'json_object'}} if json_output else {}
     response = _request_with_rate_limit(client(), model=model, messages=messages,
-                                        temperature=temperature, max_tokens=512, **kwargs)
+                                        temperature=temperature,
+                                        max_tokens=int(os.getenv('RAGAS_MAX_TOKENS', '512')),
+                                        **kwargs)
     text = response.choices[0].message.content
     if not isinstance(text, str) or not text.strip():
         raise RuntimeError('Gemini không trả về nội dung; không tạo câu trả lời giả.')

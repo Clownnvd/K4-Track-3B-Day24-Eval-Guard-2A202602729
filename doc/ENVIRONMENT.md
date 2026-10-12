@@ -107,8 +107,8 @@ docker run --rm --env-file 'C:\path\to\private-env-file' -v "${PWD}:/app" -w /ap
 ```
 
 NeMo 0.10.0 mặc định dùng endpoint completions cũ khi tên model không giống GPT;
-`setup_nemo_rails()` đăng ký `ChatOpenAI` cho engine `gemini_openai` để dùng endpoint
-chat tương thích của Gemini. Prompt self-check cấp 64 output tokens, vì mức mặc
+`setup_nemo_rails()` đăng ký `ChatOpenAI` cho engine `openai_compatible_chat` để dùng
+endpoint chat tương thích của Gemini hoặc Groq. Prompt self-check cấp 64 output tokens, vì mức mặc
 định 3 tokens từng khiến model trả rỗng và chặn nhầm câu sạch. Tốc độ gọi được
 giới hạn theo quota; thời gian chờ quota nằm trong độ trễ đo được của Phase C.
 
@@ -118,3 +118,11 @@ Với bộ nhớ máy này, lần tạo `answers_50q.json` dùng embedding
 CrossEncoder không chạy ổn định trong RAM hiện có. Đây là thay đổi cấu hình
 thực nghiệm được ghi trong TEAM và báo cáo, không được trình bày như pipeline
 BGE-M3 mặc định.
+
+Phase C còn được chạy thật bằng Groq `openai/gpt-oss-120b` qua cùng engine
+`openai_compatible_chat`. Khi đổi nhà cung cấp, truyền `GUARD_MODEL` và
+`OPENAI_BASE_URL`/`OPENAI_API_BASE` cùng khóa của nhà cung cấp qua biến môi
+trường; artifact lưu đúng model của lượt chạy. Presidio English NER nhận nhầm
+nhiều cụm tiếng Việt là `PERSON` hoặc `US_DRIVER_LICENSE`, nên `pii_scan`
+chỉ dùng các entity bắt buộc của bài: `VN_CCCD`, `VN_PHONE`, `EMAIL_ADDRESS`.
+Thay đổi này giúp 8/8 câu sạch qua lớp PII mà vẫn giữ các phép chặn PII thật.

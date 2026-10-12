@@ -5,7 +5,7 @@ import math
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from config import TEST_SET_PATH, ENABLE_LLM_EVAL, GEMINI_API_KEY, EVAL_MODEL
+from config import TEST_SET_PATH, ENABLE_LLM_EVAL, GEMINI_API_KEY, GROQ_API_KEY, LLM_PROVIDER, EVAL_MODEL
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -39,7 +39,9 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
                    'metadata': {'evaluator_models': []}}
     if not questions:
         return {**unavailable, 'status': 'empty'}
-    if not ENABLE_LLM_EVAL or not GEMINI_API_KEY:
+    provider_ready = ((LLM_PROVIDER == 'gemini' and bool(GEMINI_API_KEY)) or
+                      (LLM_PROVIDER == 'groq' and bool(GROQ_API_KEY)))
+    if not ENABLE_LLM_EVAL or not provider_ready:
         return {**unavailable, 'reason': 'Chưa bật đánh giá hoặc thiếu GEMINI_API_KEY; các số 0 không phải điểm đo.'}
     try:
         import copy
