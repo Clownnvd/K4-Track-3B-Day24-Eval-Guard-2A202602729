@@ -1,5 +1,6 @@
 """Module 4: genuine RAGAS scores; disabled/error results are explicitly labeled."""
 import json
+import hashlib
 import math
 import sys
 from dataclasses import dataclass, asdict
@@ -41,7 +42,7 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
     if not ENABLE_LLM_EVAL or not GEMINI_API_KEY:
         return {**unavailable, 'reason': 'Chưa bật đánh giá hoặc thiếu GEMINI_API_KEY; các số 0 không phải điểm đo.'}
     try:
-        import numpy as np
+        import copy
         from datasets import Dataset
         from ragas import evaluate
         from ragas.metrics import faithfulness, answer_relevancy, context_precision, context_recall
@@ -49,38 +50,76 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
         from ragas.run_config import RunConfig
         from langchain_community.embeddings import HuggingFaceEmbeddings
         from src.judge import GeminiJudge
+        from src import llm as gemini_transport
         judge = GeminiJudge()
         embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2',
                                            model_kwargs={'device': 'cpu'},
                                            encode_kwargs={'normalize_embeddings': True})
-        dataset = Dataset.from_dict({'question': questions, 'answer': answers,
-                                     'contexts': contexts, 'ground_truth': ground_truths})
-        # Clone metric instances; RAGAS may attach clients during evaluation.
-        import copy
-        metrics = [copy.deepcopy(m) for m in (faithfulness, answer_relevancy, context_precision, context_recall)]
-        # One generated question per answer limits API usage for this 50-item set.
-        # The metric itself remains
-        # RAGAS AnswerRelevancy; only its sampling strictness is reduced from 3.
-        for metric in metrics:
-            if hasattr(metric, 'strictness'):
-                metric.strictness = 1
-        result = evaluate(dataset, metrics=metrics,
-                          llm=judge, embeddings=LangchainEmbeddingsWrapper(embeddings),
-                          run_config=RunConfig(max_workers=1, timeout=120, max_retries=2),
-                          raise_exceptions=False)
-        frame = result.to_pandas()
+        source = {'question': questions, 'answer': answers,
+                  'contexts': contexts, 'ground_truth': ground_truths}
+        fingerprint = hashlib.sha256(json.dumps(
+            {'source': source, 'model': EVAL_MODEL, 'embedding': 'sentence-transformers/all-MiniLM-L6-v2'},
+            ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+        checkpoint = Path(__file__).resolve().parents[1] / '.cache' / 'ragas_progress.json'
+        scores = [{} for _ in questions]
+        if checkpoint.exists():
+            saved = json.loads(checkpoint.read_text(encoding='utf-8'))
+            if saved.get('fingerprint') == fingerprint and len(saved.get('scores', [])) == len(questions):
+                scores = saved['scores']
+
+        metric_templates = dict(zip(METRICS, (faithfulness, answer_relevancy,
+                                             context_precision, context_recall)))
+        for round_number in range(2):
+            for name, template in metric_templates.items():
+                pending = [index for index, row in enumerate(scores)
+                           if not isinstance(row.get(name), (float, int))
+                           or not math.isfinite(row[name]) or not 0 <= row[name] <= 1]
+                for start in range(0, len(pending), 10 if round_number == 0 else 1):
+                    indices = pending[start:start + (10 if round_number == 0 else 1)]
+                    dataset = Dataset.from_dict({key: [values[index] for index in indices]
+                                                 for key, values in source.items()})
+                    metric = copy.deepcopy(template)
+                    # Retain RAGAS AnswerRelevancy, with one generated question
+                    # per answer to respect the free-tier request budget.
+                    if hasattr(metric, 'strictness'):
+                        metric.strictness = 1
+                    result = evaluate(dataset, metrics=[metric], llm=judge,
+                                      embeddings=LangchainEmbeddingsWrapper(embeddings),
+                                      run_config=RunConfig(max_workers=1, timeout=120,
+                                                           max_retries=1),
+                                      raise_exceptions=False)
+                    frame = result.to_pandas()
+                    for local_index, index in enumerate(indices):
+                        value = float(frame.iloc[local_index].get(name, float('nan')))
+                        if math.isfinite(value) and 0 <= value <= 1:
+                            scores[index][name] = value
+                    checkpoint.parent.mkdir(parents=True, exist_ok=True)
+                    temporary = checkpoint.with_suffix('.tmp')
+                    temporary.write_text(json.dumps({'fingerprint': fingerprint,
+                                                     'scores': scores}, ensure_ascii=False), encoding='utf-8')
+                    temporary.replace(checkpoint)
+                    if gemini_transport.DAILY_QUOTA_EXHAUSTED:
+                        break
+                if gemini_transport.DAILY_QUOTA_EXHAUSTED:
+                    break
+            if gemini_transport.DAILY_QUOTA_EXHAUSTED or all(
+                all(name in row for name in METRICS) for row in scores):
+                break
+
         items, missing = [], []
-        for index, row in frame.iterrows():
+        for index, row in enumerate(scores):
             values = {}
             for name in METRICS:
                 value = float(row.get(name, float('nan')))
                 if not math.isfinite(value):
-                    missing.append({'index': int(index), 'metric': name})
+                    missing.append({'index': index, 'metric': name})
                 values[name] = value
-            items.append(EvalResult(str(row['question']), str(row['answer']), list(row['contexts']),
-                                    str(row['ground_truth']), **values))
-        aggregate = {name: float(np.nanmean([getattr(item, name) for item in items]))
-                     if any(math.isfinite(getattr(item, name)) for item in items) else 0.0 for name in METRICS}
+            items.append(EvalResult(str(questions[index]), str(answers[index]), list(contexts[index]),
+                                    str(ground_truths[index]), **values))
+        aggregate = {name: sum(getattr(item, name) for item in items
+                               if math.isfinite(getattr(item, name))) /
+                     max(1, sum(math.isfinite(getattr(item, name)) for item in items))
+                     for name in METRICS}
         return {**aggregate, 'per_question': items, 'status': 'complete' if not missing else 'partial',
                  'scores_valid': not missing, 'missing_metrics': missing, 'judge': EVAL_MODEL,
                  'embedding_model': 'sentence-transformers/all-MiniLM-L6-v2', 'ragas_version': '0.1.x',

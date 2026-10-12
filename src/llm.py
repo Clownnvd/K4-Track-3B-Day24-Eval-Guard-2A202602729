@@ -10,15 +10,17 @@ from config import GEMINI_API_KEY, LLM_MODEL, LLM_PROVIDER
 BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/'
 _REQUEST_LOCK = threading.Lock()
 _LAST_REQUEST_AT = 0.0
+DAILY_QUOTA_EXHAUSTED = False
 
 
 def _is_rate_limit(error):
-    return getattr(error, 'status_code', None) == 429 or type(error).__name__ == 'RateLimitError'
+    return (getattr(error, 'status_code', None) in (429, 500, 502, 503, 504)
+            or type(error).__name__ in ('RateLimitError', 'InternalServerError'))
 
 
 def _request_with_rate_limit(api, **kwargs):
-    """Serialize uncached free-tier calls and honor 429 without leaking provider details."""
-    global _LAST_REQUEST_AT
+    """Serialize uncached calls and retry transient quota/server failures."""
+    global _LAST_REQUEST_AT, DAILY_QUOTA_EXHAUSTED
     interval = float(os.getenv('GEMINI_MIN_INTERVAL_SECONDS', '4.2')) if GEMINI_API_KEY else 0.0
     with _REQUEST_LOCK:
         wait = interval - (time.monotonic() - _LAST_REQUEST_AT)
@@ -30,6 +32,9 @@ def _request_with_rate_limit(api, **kwargs):
                 _LAST_REQUEST_AT = time.monotonic()
                 return response
             except Exception as error:
+                if 'GenerateRequestsPerDay' in str(error):
+                    DAILY_QUOTA_EXHAUSTED = True
+                    raise RuntimeError('Gemini daily request quota is exhausted; retry after reset.') from None
                 if not _is_rate_limit(error) or attempt == 3:
                     raise
                 time.sleep(max(interval, 20 * (attempt + 1)))
@@ -50,7 +55,7 @@ def completion(messages, *, model=LLM_MODEL, json_output=False, temperature=0, c
         return json.loads(path.read_text(encoding='utf-8'))['text']
     kwargs = {'response_format': {'type': 'json_object'}} if json_output else {}
     response = _request_with_rate_limit(client(), model=model, messages=messages,
-                                        temperature=temperature, max_tokens=2000, **kwargs)
+                                        temperature=temperature, max_tokens=512, **kwargs)
     text = response.choices[0].message.content
     if not isinstance(text, str) or not text.strip():
         raise RuntimeError('Gemini không trả về nội dung; không tạo câu trả lời giả.')

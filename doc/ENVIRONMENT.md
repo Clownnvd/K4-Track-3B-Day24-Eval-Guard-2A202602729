@@ -87,3 +87,34 @@ py -3.11 -m venv .venv-tests
 `requirements/requirements-test.txt` ghi dependencies trực tiếp; file `.lock.txt` khóa
 toàn bộ dependencies của tập test. Đây chỉ là lock unit test, không thay constraints hoặc
 cài đặt full runtime. Không commit virtualenv, key hoặc cache model.
+
+## Cấu hình đã dùng trên máy Windows này
+
+Môi trường Python 3.11 của lab Day 18 chạy các module m1–m5, Qdrant và RAGAS. Máy
+không có MSVC Build Tools nên cài NeMo trực tiếp trên Windows dừng ở bước biên dịch
+Annoy. Phase C dùng image Linux `infra/Dockerfile.guard` đã build và kiểm tra
+`setup_presidio()` cùng `setup_nemo_rails()` thành công. Image này tải spaCy
+`en_core_web_lg`; lần đầu build cần thời gian và dung lượng đáng kể.
+
+Trước khi chạy Phase C, đặt khóa trong **env-file riêng ngoài repo** với các tên
+`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_API_BASE`; hai base URL đều trỏ tới
+`https://generativelanguage.googleapis.com/v1beta/openai/`. Không commit env-file.
+Từ thư mục gốc repo trên PowerShell:
+
+```powershell
+docker build -f infra/Dockerfile.guard -t lab24-guard .
+docker run --rm --env-file 'C:\path\to\private-env-file' -v "${PWD}:/app" -w /app lab24-guard python scripts/run_experiments.py --phase c --live --latency-samples 20
+```
+
+NeMo 0.10.0 mặc định dùng endpoint completions cũ khi tên model không giống GPT;
+`setup_nemo_rails()` đăng ký `ChatOpenAI` cho engine `gemini_openai` để dùng endpoint
+chat tương thích của Gemini. Prompt self-check cấp 64 output tokens, vì mức mặc
+định 3 tokens từng khiến model trả rỗng và chặn nhầm câu sạch. Tốc độ gọi được
+giới hạn theo quota; thời gian chờ quota nằm trong độ trễ đo được của Phase C.
+
+Với bộ nhớ máy này, lần tạo `answers_50q.json` dùng embedding
+`sentence-transformers/all-MiniLM-L6-v2` và Flashrank, collection
+`lab24_minilm`. BGE-M3 đã được thử và lập chỉ mục 104 đoạn nhưng kết hợp
+CrossEncoder không chạy ổn định trong RAM hiện có. Đây là thay đổi cấu hình
+thực nghiệm được ghi trong TEAM và báo cáo, không được trình bày như pipeline
+BGE-M3 mặc định.

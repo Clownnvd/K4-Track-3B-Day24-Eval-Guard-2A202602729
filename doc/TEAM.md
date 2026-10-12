@@ -16,7 +16,7 @@ Người nộp: Nguyễn Văn Duy, MSSV 2A202602729. Link repo được nộp tr
 
 Máy Windows, Python 3.11 từ môi trường lab Day 18. Qdrant chạy bằng Docker tại cổng 6333. Tài liệu được chia thành 104 đoạn và lập chỉ mục BM25 + dense. Vì bộ nhớ máy giới hạn, lần chạy 50 câu sử dụng `sentence-transformers/all-MiniLM-L6-v2` cho embedding, Flashrank cho rerank; không nhận đó là BGE-M3/CrossEncoder mặc định. Hai PDF chỉ có ảnh bị bỏ qua vì chưa OCR. Nguồn dữ liệu và các giới hạn này được giữ rõ trong báo cáo.
 
-Các bài kiểm thử offline: `python -m pytest -q` — 86 passed, 3 deselected. Đây là kiểm thử mã với mock, tách biệt với bằng chứng chạy API/model thật trong `artifacts/`.
+Các bài kiểm thử offline: `python -m pytest -q` — 87 passed, 3 deselected. Đây là kiểm thử mã với mock, tách biệt với bằng chứng chạy API/model thật trong `artifacts/`.
 
 ## INDIVIDUAL
 

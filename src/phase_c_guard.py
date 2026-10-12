@@ -3,14 +3,16 @@ from __future__ import annotations
 """Phase C: Production Guardrails — Presidio PII + NeMo Guardrails + P95 Latency."""
 
 import asyncio
+import hashlib
 import json
 import os
 import statistics
 import sys
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import ADVERSARIAL_SET_PATH, GUARDRAILS_CONFIG_DIR, LATENCY_BUDGET_P95_MS, OPENAI_API_KEY, PRESIDIO_LANGUAGE
+from config import ADVERSARIAL_SET_PATH, GUARDRAILS_CONFIG_DIR, LATENCY_BUDGET_P95_MS, OPENAI_API_KEY, PRESIDIO_LANGUAGE, ROOT_DIR
 
 _LAST_NEMO_CALL_AT = 0.0
 
@@ -30,7 +32,10 @@ async def _generate_with_quota(rails, **kwargs):
             _LAST_NEMO_CALL_AT = time.monotonic()
             return result
         except Exception as error:
-            if attempt == 3 or not ("429" in str(error) or "RESOURCE_EXHAUSTED" in str(error)):
+            if "GenerateRequestsPerDay" in str(error):
+                raise RuntimeError("Gemini daily request quota is exhausted; retry after reset.") from None
+            if attempt == 3 or not any(code in str(error) for code in
+                                       ("429", "500", "502", "503", "504", "RESOURCE_EXHAUSTED", "UNAVAILABLE")):
                 raise
             await asyncio.sleep(max(60.0, interval))
 
@@ -146,9 +151,25 @@ def run_adversarial_suite(adversarial_set: list[dict], rails=None,
     if rails is None:
         rails = setup_nemo_rails()
 
+    checkpoint_path = Path(ROOT_DIR) / ".cache" / "guard_input_checkpoint.json"
+    signature = hashlib.sha256(
+        json.dumps(adversarial_set, ensure_ascii=False, sort_keys=True).encode("utf-8")
+        + (Path(GUARDRAILS_CONFIG_DIR) / "config.yml").read_bytes()
+        + (Path(GUARDRAILS_CONFIG_DIR) / "rails.co").read_bytes()
+        + Path(__file__).read_bytes()
+    ).hexdigest()
+    saved = {}
+    if os.getenv("DAY24_GUARD_CHECKPOINT") == "1" and checkpoint_path.exists():
+        prior = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        if prior.get("signature") == signature:
+            saved = {row["id"]: row for row in prior.get("rows", [])}
+
     async def collect():
         rows = []
         for item in adversarial_set:
+            if item["id"] in saved:
+                rows.append(saved[item["id"]])
+                continue
             blocked_by = None
             if pii_scan(item["input"], analyzer, anonymizer)["has_pii"]:
                 blocked_by = "presidio"
@@ -163,6 +184,12 @@ def run_adversarial_suite(adversarial_set: list[dict], rails=None,
                 "actual": actual, "blocked_by": blocked_by,
                 "passed": actual == item["expected"],
             })
+            if os.getenv("DAY24_GUARD_CHECKPOINT") == "1":
+                checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = checkpoint_path.with_suffix(".tmp")
+                temporary.write_text(json.dumps({"signature": signature, "rows": rows},
+                                                ensure_ascii=False, indent=2), encoding="utf-8")
+                os.replace(temporary, checkpoint_path)
         return rows
 
     return asyncio.run(collect())
