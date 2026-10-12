@@ -1,0 +1,252 @@
+{
+  "metadata": {
+    "format_version": 2,
+    "run_kind": "live",
+    "models": {
+      "generation": [
+        "gemini-3.5-flash-lite"
+      ],
+      "evaluator": [],
+      "judge": [
+        "gemini-3.5-flash-lite"
+      ],
+      "guard": []
+    },
+    "created_at": "2026-10-12T17:24:55.207943+00:00",
+    "source_sha256": {
+      "answers_50q.json": "e8e36d3c22a79209af752509d22aeebb57db9cb39f6e15a3925fadf2512b5b9f",
+      "test_set_50q.json": "3ad288426e3066e561737b35b66b671e6c411697dffd0d1161cc7b801e5954cc",
+      "human_labels_10q.json": "37231c1f4a635801e27a98333898d2d4c9c3c71167e8b9e7259b90cec5956782"
+    }
+  },
+  "pair_sources": {
+    "A": "artifacts/answers_50q.json:answer",
+    "B": "fixtures/human_labels_10q.json:model_answer",
+    "reference": "fixtures/test_set_50q.json:ground_truth"
+  },
+  "pairwise_results": [
+    {
+      "question_id": 1,
+      "question": "Nhân viên được nghỉ bao nhiêu ngày khi kết hôn?",
+      "answer_a": "3 ngày làm việc",
+      "answer_b": "Nhân viên được nghỉ 3 ngày làm việc có lương khi kết hôn.",
+      "winner_pass1": "B",
+      "winner_pass2": "B",
+      "final_winner": "B",
+      "reasoning_pass1": "Answer B includes both the number of days and the crucial detail that it is paid leave, making it more complete and aligned with the reference.",
+      "reasoning_pass2": "Answer A provides a complete and well-formed sentence that accurately captures the information from the reference regarding marriage leave, whereas Answer B is just a fragment.",
+      "position_consistent": true,
+      "scores_pass1": {
+        "A": 0.7,
+        "B": 1.0
+      },
+      "scores_pass2": {
+        "A": 0.7,
+        "B": 1.0
+      }
+    },
+    {
+      "question_id": 5,
+      "question": "Muốn mua thiết bị trị giá 55 triệu cần ai phê duyệt?",
+      "answer_a": "Tổng Giám đốc (CEO)",
+      "answer_b": "Cần Giám đốc phòng ban phê duyệt.",
+      "winner_pass1": "A",
+      "winner_pass2": "A",
+      "final_winner": "A",
+      "reasoning_pass1": "Answer A correctly identifies that purchases over 50,000,000 VNĐ require CEO approval, whereas 55 million is over that threshold. Answer B is incorrect based on the reference.",
+      "reasoning_pass2": "Theo tài liệu tham khảo, đơn hàng trên 50 triệu VNĐ cần Tổng Giám đốc (CEO) phê duyệt. Thiết bị trị giá 55 triệu vượt mức này, do đó câu trả lời B là chính xác và bám sát reference hơn.",
+      "position_consistent": true,
+      "scores_pass1": {
+        "A": 1.0,
+        "B": 0.0
+      },
+      "scores_pass2": {
+        "A": 1.0,
+        "B": 0.0
+      }
+    },
+    {
+      "question_id": 12,
+      "question": "Thưởng Tết tối thiểu cho nhân viên chính thức có từ 6 tháng trở lên là bao nhiêu?",
+      "answer_a": "Thưởng Tết tối thiểu cho nhân viên chính thức có từ 6 tháng trở lên là **1 tháng lương**.",
+      "answer_b": "Nhân viên được thưởng Tết tối thiểu 1 tháng lương.",
+      "winner_pass1": "A",
+      "winner_pass2": "A",
+      "final_winner": "A",
+      "reasoning_pass1": "Answer A is more complete and specific, directly addressing the conditions in the question (official employees with 6 months or more) while matching the reference. Answer B omits the specific criteria.",
+      "reasoning_pass2": "Answer B accurately and completely captures the specific detail about the 6-month tenure and the exact minimum bonus amount mentioned in the reference, whereas Answer A is slightly less complete by omitting the specific condition context.",
+      "position_consistent": true,
+      "scores_pass1": {
+        "A": 1.0,
+        "B": 0.7
+      },
+      "scores_pass2": {
+        "A": 1.0,
+        "B": 0.8
+      }
+    },
+    {
+      "question_id": 21,
+      "question": "Một nhân viên Senior có 9 năm thâm niên được nghỉ bao nhiêu ngày phép năm và lương trong khoảng nào?",
+      "answer_a": "Theo tài liệu chính sách nghỉ phép năm (Phiên bản 2024), nhân viên có thâm niên từ 3 năm trở lên được cộng thêm 1 ngày phép cho mỗi 3 năm làm việc liên tục. Ví dụ: nhân viên có 9 năm thâm niên được **18 ngày phép** (15 + 3).\n\nKhông tìm thấy thông tin về mức lương cụ thể của nhân viên này trong context.",
+      "answer_b": "Được nghỉ 18 ngày phép (15 cơ bản + 3 thâm niên). Lương Senior từ 20 đến 35 triệu.",
+      "winner_pass1": "B",
+      "winner_pass2": "B",
+      "final_winner": "B",
+      "reasoning_pass1": "Answer B successfully provides both pieces of information requested by the question (number of leave days and salary range), perfectly matching the reference data. Answer A fails to provide the salary range.",
+      "reasoning_pass2": "Answer A accurately answers both parts of the question (number of leave days and salary range) based on the reference. Answer B incorrectly claims that there is no salary information in the context, even though the reference clearly states the salary for a Senior.",
+      "position_consistent": true,
+      "scores_pass1": {
+        "A": 0.5,
+        "B": 1.0
+      },
+      "scores_pass2": {
+        "A": 0.4,
+        "B": 1.0
+      }
+    },
+    {
+      "question_id": 41,
+      "question": "Nhân viên được nghỉ bao nhiêu ngày phép năm?",
+      "answer_a": "Không tìm thấy.",
+      "answer_b": "Nhân viên được nghỉ 12 ngày phép năm.",
+      "winner_pass1": "B",
+      "winner_pass2": "A",
+      "final_winner": "tie",
+      "reasoning_pass1": "Answer A fails to find the information, whereas Answer B provides the incorrect figure from the obsolete v2023 policy instead of the current v2024 policy (15 days). However, Answer B still attempts an answer from the retrieved data, making it slightly more complete than failing entirely, though both are factually inaccurate based on the current policy.",
+      "reasoning_pass2": "Answer A provides the incorrect answer based on the outdated v2023 policy (12 days) instead of the current v2024 policy (15 days), while Answer B correctly avoids using outdated information or states it couldn't find the correct current policy in the context (though the info was there, A is factually wrong based on the priority rule). Wait, the reference says v2024 is 15 days, A says 12 days (which is v2023). Therefore, A is factually incorrect. B says 'Not found' which is also technically missing the right answer, but A is worse because it's wrong.",
+      "position_consistent": false,
+      "scores_pass1": {
+        "A": 0.0,
+        "B": 0.2
+      },
+      "scores_pass2": {
+        "A": 0.5,
+        "B": 0.0
+      }
+    }
+  ],
+  "binary_judgments": [
+    {
+      "question_id": 1,
+      "question": "Nhân viên được nghỉ bao nhiêu ngày khi kết hôn?",
+      "model_answer": "Nhân viên được nghỉ 3 ngày làm việc có lương khi kết hôn.",
+      "label": 1,
+      "reasoning": "Câu trả lời đã nêu đúng số ngày nghỉ (3 ngày làm việc có lương khi kết hôn) theo reference, mặc dù thiếu chi tiết 'không trừ vào phép năm' nhưng ý chính thiết yếu của câu hỏi đã được đáp ứng đầy đủ và chính xác."
+    },
+    {
+      "question_id": 5,
+      "question": "Muốn mua thiết bị trị giá 55 triệu cần ai phê duyệt?",
+      "model_answer": "Cần Giám đốc phòng ban phê duyệt.",
+      "label": 0,
+      "reasoning": "Thiết bị trị giá 55 triệu (trên 50 triệu) theo reference cần Tổng Giám đốc (CEO) phê duyệt, nhưng answer lại trả lời là Giám đốc phòng ban nên sai."
+    },
+    {
+      "question_id": 12,
+      "question": "Thưởng Tết tối thiểu cho nhân viên chính thức có từ 6 tháng trở lên là bao nhiêu?",
+      "model_answer": "Nhân viên được thưởng Tết tối thiểu 1 tháng lương.",
+      "label": 1,
+      "reasoning": "Answer trả lời chính xác và đầy đủ ý thiết yếu theo reference, đúng mức thưởng Tết tối thiểu 1 tháng lương cho nhân viên chính thức từ 6 tháng trở lên."
+    },
+    {
+      "question_id": 21,
+      "question": "Một nhân viên Senior có 9 năm thâm niên được nghỉ bao nhiêu ngày phép năm và lương trong khoảng nào?",
+      "model_answer": "Được nghỉ 18 ngày phép (15 cơ bản + 3 thâm niên). Lương Senior từ 20 đến 35 triệu.",
+      "label": 1,
+      "reasoning": "Câu trả lời đáp ứng chính xác số ngày phép (18 ngày) và khoảng lương (20 đến 35 triệu) dựa trên reference, sử dụng đúng chính sách v2024 và không bỏ sót ý thiết yếu."
+    },
+    {
+      "question_id": 23,
+      "question": "Nhân viên được tài trợ khóa học 25 triệu, nghỉ việc sau 8 tháng. Phải hoàn trả bao nhiêu?",
+      "model_answer": "Hoàn trả 25 triệu vì chưa đủ 1 năm cam kết.",
+      "label": 1,
+      "reasoning": "Câu trả lời đã chính xác theo reference, trả lời đúng số tiền phải hoàn trả (25 triệu) và lý do nghỉ sau 8 tháng là chưa đủ 1 năm cam kết (phải hoàn trả 100%), không bỏ sót ý thiết yếu."
+    },
+    {
+      "question_id": 29,
+      "question": "Nhân viên tạm ứng 8 triệu, chưa thanh toán sau 30 ngày. Ai phê duyệt và phí phạt là bao nhiêu?",
+      "model_answer": "Trưởng phòng phê duyệt. Phạt 2% tháng trên 8 triệu.",
+      "label": 0,
+      "reasoning": "Thiếu người phê duyệt là Kế toán trưởng và tính sai phí phạt (trong reference là 15 ngày quá hạn nhưng câu hỏi giả định 30 ngày, tuy nhiên reference quy định công thức rõ ràng, và câu trả lời thiếu thành phần duyệt là Kế toán trưởng)."
+    },
+    {
+      "question_id": 33,
+      "question": "Nhân viên Manager có thâm niên 12 năm: tổng phụ cấp hàng tháng và số ngày phép năm?",
+      "model_answer": "Phép: 19 ngày. Phụ cấp: 1.500.000 VNĐ/tháng.",
+      "label": 1,
+      "reasoning": "Câu trả lời đã nêu chính xác tổng số ngày phép là 19 ngày và tổng phụ cấp hàng tháng là 1.500.000 VNĐ, hoàn toàn khớp với reference."
+    },
+    {
+      "question_id": 41,
+      "question": "Nhân viên được nghỉ bao nhiêu ngày phép năm?",
+      "model_answer": "Nhân viên được nghỉ 12 ngày phép năm.",
+      "label": 0,
+      "reasoning": "Câu trả lời sử dụng thông tin từ chính sách v2023 cũ (12 ngày) thay vì chính sách v2024 hiện hành (15 ngày cơ bản) theo yêu cầu."
+    },
+    {
+      "question_id": 46,
+      "question": "Nhân viên thử việc có được nghỉ phép năm không?",
+      "model_answer": "Nhân viên thử việc không được nghỉ phép năm và phải xin nghỉ không lương nếu cần.",
+      "label": 1,
+      "reasoning": "Câu trả lời hoàn toàn chính xác theo reference, nêu đúng việc nhân viên thử việc không được nghỉ phép năm và phải xin nghỉ không lương, không bị mắc bẫy phủ định."
+    },
+    {
+      "question_id": 50,
+      "question": "Nhân viên Manager có thể dùng VPN cá nhân (NordVPN) khi WFH không?",
+      "model_answer": "Được, miễn là đảm bảo kết nối an toàn.",
+      "label": 0,
+      "reasoning": "Reference cấm sử dụng VPN cá nhân, trong khi answer lại cho phép."
+    }
+  ],
+  "calibration": {
+    "question_ids": [
+      1,
+      5,
+      12,
+      21,
+      23,
+      29,
+      33,
+      41,
+      46,
+      50
+    ],
+    "judge_labels": [
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    "human_labels": [
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    "cohen_kappa": 1.0
+  },
+  "bias_report": {
+    "total_judged": 5,
+    "position_bias_rate": 0.2,
+    "position_bias_count": 1,
+    "verbosity_bias": 0.5,
+    "verbosity_details": {
+      "a_wins_a_longer": 1,
+      "b_wins_b_longer": 1,
+      "total_decisive": 4
+    },
+    "interpretation": "1/5 pairwise decisions changed after swapping positions; the longer answer won 2/4 decisive cases. These rates are signals to inspect, not proof of bias."
+  }
+}

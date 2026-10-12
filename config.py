@@ -7,17 +7,23 @@ load_dotenv()
 
 # --- API Keys ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash-lite")
+EVAL_MODEL = os.getenv("EVAL_MODEL", LLM_MODEL)
+ENABLE_LLM_EVAL = os.getenv("ENABLE_LLM_EVAL", "0") == "1"
+ENABLE_LLM_ENRICHMENT = os.getenv("ENABLE_LLM_ENRICHMENT", "0") == "1"
 HF_TOKEN = os.getenv("HF_TOKEN", "")  # Optional: for HuggingFace models
 
 # --- Qdrant (same as Day 18) ---
 QDRANT_HOST = "localhost"
 QDRANT_PORT = 6333
-COLLECTION_NAME = "lab24_production"
+COLLECTION_NAME = os.getenv("DAY24_COLLECTION_NAME", "lab24_production")
 NAIVE_COLLECTION = "lab24_naive"
 
 # --- Embedding (same as Day 18) ---
-EMBEDDING_MODEL = "BAAI/bge-m3"
-EMBEDDING_DIM = 1024
+EMBEDDING_MODEL = os.getenv("DAY24_EMBEDDING_MODEL", "BAAI/bge-m3")
+EMBEDDING_DIM = int(os.getenv("DAY24_EMBEDDING_DIM", "1024"))
 
 # --- Chunking (same as Day 18) ---
 HIERARCHICAL_PARENT_SIZE = 2048
@@ -45,8 +51,8 @@ GUARDRAILS_CONFIG_DIR = os.path.join(ROOT_DIR, "guardrails")
 PAIR_QUESTION_IDS = (1, 5, 12, 21, 41)
 
 # --- LLM Judge ---
-GENERATION_MODEL = "gpt-4o-mini"
-JUDGE_MODEL = "gpt-4o-mini"
+GENERATION_MODEL = os.getenv("GENERATION_MODEL", LLM_MODEL)
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", LLM_MODEL)
 
 # --- Guardrail latency budget ---
 LATENCY_BUDGET_P95_MS = 500  # Full guard target; Task 12 currently measures input guards only.

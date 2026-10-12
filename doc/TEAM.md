@@ -1,50 +1,34 @@
-# Nhóm thực hiện K4 Track 3B
+# Nhóm thực hiện K4 Track 3B Day 24
 
-Tên nhóm: {{Tên nhóm}}
+Tên nhóm: Nguyễn Văn Duy (bài cá nhân theo xác nhận của người nộp).
 
-Repo chung: {{Link repo}}
+Repo nộp: https://github.com/Clownnvd/K4-Track-3B-Day24-Eval-Guard-2A202602729
 
-Trưởng nhóm/người nộp: {{Họ tên và MSSV}}
-
-Ngày lab/deadline áp dụng: {{Ngày giờ theo thông báo lớp}} — Asia/Ho_Chi_Minh (UTC+07:00)
-
-Commit dùng để chấm: {{Commit SHA}}
-
-Mỗi nhóm nộp một repo. Điền đủ thành viên và một mục INDIVIDUAL cho từng người.
-Thêm/xóa rows để khớp nhóm thật; mẫu ba rows không ép nhóm phải có ba người.
+Người nộp: Nguyễn Văn Duy, MSSV 2A202602729. Link repo được nộp trên VLearn lúc 22:51 ngày 12/10/2026 (mã BN-261012-40847). Commit dùng để chấm là HEAD của nhánh main trong repo trên sau khi hoàn thiện; ghi lại SHA cụ thể ở bản cập nhật cuối.
 
 ## Thành viên và phân công
 
-| STT | Họ và tên | MSSV | Vai trò / công việc thật | Bằng chứng |
+| STT | Họ và tên | MSSV | Vai trò / công việc | Bằng chứng |
 |---|---|---|---|---|
-| 1 | {{Họ tên}} | {{MSSV}} | {{Phase/file/hàm}} | {{Commit/PR/report}} |
-| 2 | {{Họ tên}} | {{MSSV}} | {{Phase/file/hàm}} | {{Commit/PR/report}} |
-| 3 | {{Họ tên}} | {{MSSV}} | {{Phase/file/hàm}} | {{Commit/PR/report}} |
+| 1 | Nguyễn Văn Duy | 2A202602729 | Tích hợp m1–m5, tạo 50 câu trả lời, thực hiện Phase A/B/C, phân tích kết quả và nộp bài | `src/phase_a_ragas.py`, `src/phase_b_judge.py`, `src/phase_c_guard.py`, `artifacts/`, `doc/reports/` |
 
-Người tích hợp/chạy batch/nộp link: {{Họ tên, công việc và bằng chứng}}.
+## Môi trường và chuẩn bị
 
-## Môi trường và chuẩn bị trước lớp
+Máy Windows, Python 3.11 từ môi trường lab Day 18. Qdrant chạy bằng Docker tại cổng 6333. Tài liệu được chia thành 104 đoạn và lập chỉ mục BM25 + dense. Vì bộ nhớ máy giới hạn, lần chạy 50 câu sử dụng `sentence-transformers/all-MiniLM-L6-v2` cho embedding, Flashrank cho rerank; không nhận đó là BGE-M3/CrossEncoder mặc định. Hai PDF chỉ có ảnh bị bỏ qua vì chưa OCR. Nguồn dữ liệu và các giới hạn này được giữ rõ trong báo cáo.
 
-OS/Python/compiler: {{Phiên bản thực tế}}.
-Virtualenv/dependencies/imports: {{Lệnh và kết quả}}.
-Models/Qdrant/50 answers đã chuẩn bị: {{Bằng chứng và giới hạn/fallback}}.
-Nếu cài full NeMo chưa thành công, ghi lỗi thực tế; không dùng unit test pass
-hoặc pip resolve để khẳng định runtime đã chạy.
+Các bài kiểm thử offline: `python -m pytest -q` — 86 passed, 3 deselected. Đây là kiểm thử mã với mock, tách biệt với bằng chứng chạy API/model thật trong `artifacts/`.
 
 ## INDIVIDUAL
 
-Sao chép mẫu cho mỗi thành viên; tiêu đề họ tên không dấu-MSSV.
+### NguyenVanDuy-2A202602729
 
-### {{HoVaTen}}-{{MSSV}}
+- Công việc: hoàn thiện Tasks 1–13, tích hợp pipeline RAG Day 18, chạy RAGAS, LLM judge, Presidio và NeMo, viết ba báo cáo và kiểm chứng bằng checker.
+- Bằng chứng: các tệp nguồn trong `src/`, kết quả `artifacts/answers_50q.json`, `artifacts/ragas_50q.json`, `artifacts/judge_results.json`, `artifacts/guard_results.json` và `doc/reports/`; mỗi kết quả chỉ được gọi là đã hoàn thành khi tệp thật tồn tại và qua checker.
+- Cách kiểm tra: `python -m pytest -q` cho logic offline, `python scripts/check_lab.py` cho bộ bài nộp; lệnh runner `--live` mới là phép thử model/API.
+- Điều đã học: so sánh đầu ra với đáp án tham chiếu, tách chất lượng truy hồi và sinh, đảo thứ tự A/B để quan sát thiên lệch vị trí, đối chiếu nhãn bằng Cohen’s kappa và đo false positive của guardrails bằng câu sạch.
+- Giới hạn: tài liệu scan thiếu OCR; bộ 50/20/8/4 mẫu nhỏ; số đo latency input không đại diện cho thời gian toàn request; chi tiết được trình bày trong báo cáo tương ứng.
+- AI hỗ trợ: Codex hỗ trợ viết và rà soát mã; Gemini được dùng cho generation/judge khi chạy live. Không dùng nội dung AI tự tạo để thay thế bằng chứng thực nghiệm.
 
-- Phần được giao và phần thực tế đã làm: {{Nhiệm vụ, file/hàm, mục đích}}.
-- Bằng chứng: {{Commit/PR và artifacts/reports liên quan}}.
-- Cách kiểm tra: {{Unit mock hoặc live experiment, lệnh và kết quả}}.
-- Điều đã học: {{Khái niệm và cách thể hiện trong bài}}.
-- Giới hạn/cách xử lý: {{Vấn đề và kiểm chứng}}.
-- Nguồn/AI hỗ trợ nếu có: {{Công cụ, phạm vi, cách tự kiểm chứng}}.
+## Cập nhật sau khi nộp link
 
-## Cập nhật sau khi nộp
-
-{{Ghi phiên bản nộp; nếu sửa sau deadline, ghi commit/thời điểm/lý do và thông báo
-coach cho phép áp dụng bản cập nhật. Nếu không có cập nhật, ghi rõ không có.}}
+Link fork được nộp trước khi hoàn thiện mã theo yêu cầu người nộp. Các commit tiếp theo trong cùng repo bổ sung thí nghiệm và báo cáo; người đọc cần đối chiếu thời gian commit với hạn áp dụng của lớp.
