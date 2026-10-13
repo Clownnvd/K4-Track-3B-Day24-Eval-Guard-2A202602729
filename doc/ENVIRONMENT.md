@@ -126,3 +126,12 @@ trường; artifact lưu đúng model của lượt chạy. Presidio English NER
 nhiều cụm tiếng Việt là `PERSON` hoặc `US_DRIVER_LICENSE`, nên `pii_scan`
 chỉ dùng các entity bắt buộc của bài: `VN_CCCD`, `VN_PHONE`, `EMAIL_ADDRESS`.
 Thay đổi này giúp 8/8 câu sạch qua lớp PII mà vẫn giữ các phép chặn PII thật.
+
+Phase A dùng Groq sau khi khóa Gemini miễn phí chạm giới hạn 500 request/ngày.
+`RAGAS_METRIC_MODELS` ánh xạ bốn metric sang ba model Groq như ghi trong
+`doc/reports/failure_clusters.md`; `RAGAS_COMPACT_PROMPTS=1` bỏ ví dụ dài trong
+prompt evaluator nhưng giữ schema, tiêu chí và phép tính RAGAS 0.1.22. Adapter
+chấp nhận JSON list đúng yêu cầu của Faithfulness/Context Recall qua API chat
+tương thích và giữ checkpoint từng metric trong `.cache/`. Việc chấm lại các
+đáp án ngắn chỉ hoàn chỉnh bước tách câu tiếng Việt; không thay `answer`,
+`contexts` hay `ground_truth` trong `answers_50q.json`.

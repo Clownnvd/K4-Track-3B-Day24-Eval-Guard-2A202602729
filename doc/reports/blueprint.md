@@ -1,60 +1,49 @@
 # Blueprint CI/CD cho RAG và guardrails
 
-Nhóm: {{Tên nhóm}}
+Người thực hiện: Nguyễn Văn Duy (2A202602729). Nhóm một thành viên.
+Đây là **đề xuất CI/CD**, chưa phải workflow đang chạy. Số đo lấy từ ba artifact thật trong `artifacts/`.
+Thời gian chạy: RAGAS `2026-10-13T02:11:36.014205+00:00`; judge `2026-10-12T17:24:55.207943+00:00`; guard `2026-10-12T19:50:40.203266+00:00`.
+Model generation: gemini-3.5-flash-lite; evaluator: openai/gpt-oss-120b, openai/gpt-oss-20b, qwen/qwen3.8-27b, sentence-transformers/all-MiniLM-L6-v2; judge: gemini-3.5-flash-lite; guard: openai/gpt-oss-120b.
+Phân công chấm RAGAS: Faithfulness dùng GPT-OSS 20B; Answer Relevancy và Context Precision dùng Qwen 3.8 27B; Context Recall dùng GPT-OSS 120B. Prompt evaluator giữ schema và phép tính RAGAS, lược ví dụ dài để không vượt hạn mức token Groq Free. Điểm giữa các metric cần đọc theo model tương ứng, không coi là do một judge duy nhất chấm.
 
-Người phụ trách: {{Họ tên và MSSV}}
+## Luồng và hành động khi lỗi
 
-Đây là **đề xuất CI/CD**, không phải workflow đã được triển khai/chạy.
-Nguồn kết quả: artifacts/ragas_50q.json, judge_results.json, guard_results.json.
-Run timestamp: {{created_at}}; guard models: {{metadata.models.guard}}.
-Models generation/evaluator/judge từ A/B: {{models theo từng vai trò và nguồn report}}.
+```text
+Người dùng → Presidio (PII) → NeMo input → RAG (BM25 + dense Qdrant → Flashrank → tài liệu nguồn → Gemini) → NeMo output → câu trả lời
+```
+Trong phép thử, Presidio phát hiện và ẩn CCCD/CMND, số điện thoại Việt Nam và email; NeMo input kiểm tra jailbreak, vượt phạm vi và yêu cầu dữ liệu nhạy cảm. Bản triển khai đề xuất dừng request có PII không cần thiết hoặc bị NeMo chặn, chỉ gửi nội dung đã lọc tới RAG. Nếu không đủ nguồn, trả lời chưa có căn cứ và ghi loại thất bại để bổ sung tài liệu. NeMo output kiểm tra câu trả lời có sẵn trước khi trả về.
+API key chỉ đọc từ biến môi trường hoặc kho bí mật khi chạy; không lưu trong repo, artifact hay log. Log đề xuất chỉ giữ request ID, loại rail, phiên bản policy/model và số đo; ẩn nội dung định danh. Nếu dịch vụ guard lỗi, đề xuất fail closed cho yêu cầu cần bảo vệ dữ liệu và phát cảnh báo vận hành, không âm thầm cho qua. Đây là chính sách đề xuất, chưa phải logic request production của bài lab.
 
-## Kiến trúc và failure action
+## Kết quả tấn công, câu sạch và đầu ra
 
-Input → Presidio → NeMo input → RAG → NeMo output → response.
-Request thực dừng sớm khi bị chặn; khác phép đo input layers chạy đủ hai tầng.
+Attacks: **18/20** đạt; ID chưa chặn: [11, 14]. Clean controls: **8/8** được phép; false-positive rate **0.000**; ID bị chặn nhầm: không có. Output cases: **4/4** đạt; ID lỗi: không có.
+Chỉ đánh giá 20 attack, 8 clean và 4 output cố định. Kết quả này không đại diện mọi yêu cầu người dùng; khi tăng policy cần bổ sung câu sạch để phát hiện chặn nhầm.
 
-{{Mô tả data flow, failure action, log/redact, nơi giữ secrets và điều kiện fallback.}}
+## Phạm vi và số đo độ trễ
 
-## Phạm vi và số đo latency
+Task 12 đo `scope=input_layers_sequential`: Presidio rồi NeMo input, không short-circuit; 2 warm-up bị loại, 20 mẫu timed; percentile `linear`. Tổng input được tính trên từng mẫu trước khi lấy percentile, không cộng hai P95.
 
-Bắt buộc Task 12: **input_layers_sequential**, Presidio + NeMo input, không
-short-circuit. Engines tạo trước đo; có hai warm-up thật không tính vào mẫu.
-Percentile nội suy tuyến tính từ raw samples; tổng từ tổng từng sample.
+| Lớp / phạm vi | P50 ms | P95 ms | P99 ms | Tình trạng |
+|---|---:|---:|---:|---|
+| Presidio | 6.9 | 8.1 | 9.0 | Đã đo |
+| NeMo input | 5280.8 | 5424.4 | 6081.3 | Đã đo |
+| Input guard tuần tự | 5287.8 | 5430.1 | 6087.5 | Đã đo |
+| RAG | chưa đo | chưa đo | chưa đo | Ngoài Task 12 |
+| NeMo output | chưa đo | chưa đo | chưa đo | Ngoài Task 12 |
+| Full guard / request có dừng sớm | chưa đo | chưa đo | chưa đo | Không suy từ input guard |
 
-Số mẫu timed: {{n_samples}}; warm-up: {{warmup_runs}};
-phương pháp: {{percentile_method}}.
+Target input-layer P95 < 500 ms; đo được 5430.1 ms, `latency_budget_ok=false`. Thời gian NeMo còn chịu giới hạn request/phút của Groq; khoảng chờ quota được tính trong số đo vì người dùng cũng phải chờ. Cần đo thêm RAG, output rail và request toàn luồng với timestamp từng bước, ít nhất 2 warm-up và mẫu đủ cho P95 trước khi tuyên bố SLO 500 ms.
 
-| Layer / scope | P50 ms | P95 ms | P99 ms | Tình trạng |
-|---|---|---|---|---|
-| Presidio | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| NeMo input | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| Input guard sequential | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| RAG | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
-| NeMo output | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
-| Full guard / short-circuit request | chưa đo | chưa đo | chưa đo | Không suy từ input_guard_ms |
+## Cổng CI đề xuất
 
-Input-layer budget target: 500ms; kết quả thực tế/budget_ok: {{giá trị và bool}}.
-{{Nêu bottleneck nếu vượt target. Nếu chưa đo các phần ngoài phạm vi, giữ “chưa đo”
-và nêu kế hoạch lấy mẫu/warm-up/timestamps; nếu đã đo thì thay bằng số và phương pháp.}}
+Điểm RAGAS trung bình hiện tại là **0.757**; faithfulness toàn bộ 0.725; nhóm yếu nhất là **multi_hop** (0.635). Cohen’s κ = **1.000**.
+Đề xuất pipeline CI chạy tests offline, xác minh schema/hash bằng `python scripts/check_lab.py`, rồi trên lịch riêng chạy batch API thật. Job trả nonzero khi faithfulness <0,75, avg_score <0,65, attacks <18/20, clean <8/8 hoặc output <4/4. Đây là ngưỡng đề xuất, không phải gate đã cài; điểm faithfulness hiện tại 0,725 sẽ **không đạt** gate đề xuất này. Bài lab chỉ yêu cầu tối thiểu attacks 15/20. Chỉ áp ngưỡng full-guard P95 <500 ms sau khi đo đúng full guard; Task 12 hiện mới đo input layers.
 
-## CI gates đề xuất
+## Giám sát và bước cải thiện có thể kiểm chứng
 
-- RAGAS faithfulness ≥0.75, avg_score ≥0.65 trên 50 câu.
-- Attacks ≥18/20 cho CI đề xuất; clean 8/8 allowed; output cases đúng.
-- Full guard P95 <500ms chỉ áp dụng sau khi thực sự đo full guard.
-
-Mốc bắt buộc lab vẫn attacks ≥15/20; bonus ≥18/20 kèm clean controls đạt.
-{{Đề xuất lệnh job và cách script trả nonzero khi không đạt. MIN_* là biến đề
-xuất, không tự làm quality gate nếu runner chưa kiểm tra ngưỡng. Ghi rõ workflow
-chưa triển khai, hoặc dẫn bằng chứng nếu nhóm thực sự đã triển khai.}}
-
-## Monitoring và cải tiến
-
-{{Nêu metric, ngưỡng cảnh báo, cách lấy samples, xử lý false positives, drift,
-privacy và người xử lý. Dùng kết quả thật và ghi giới hạn của bộ 50/20/8/4.}}
-
-RAGAS mean/worst distribution: {{giá trị}}.
-Cohen’s κ: {{giá trị}}.
-Attacks passed: {{số lượng}}/20; clean false_positive_rate: {{giá trị}}.
-{{Nêu 3–5 câu cải tiến có thể kiểm tra, gắn với bằng chứng của nhóm.}}
+Theo dõi theo tuần: điểm RAGAS từng distribution và top lỗi, số câu không có câu trả lời, tỉ lệ chặn attack/clean/output, P50/P95/P99 mỗi lớp, lỗi 429, phiên bản model/policy và tỉ lệ bất đồng khi đảo A/B. Lưu mẫu đã ẩn PII để review thủ công; khi false positive tăng, bổ sung control cùng loại trước khi sửa prompt. Khi tài liệu đổi phiên bản, gắn ngày hiệu lực vào index và chạy lại tập 50 câu trước khi phát hành.
+1. Mở rộng nguồn cho câu nhiều bước và so lại context_recall từng ID yếu trong `failure_clusters.md`.
+2. OCR hai PDF scan ảnh bị bỏ qua, lập chỉ mục lại, sau đó kiểm tra liệu các câu thiếu nguồn có tăng điểm recall hay không.
+3. Đặt bài kiểm tra riêng cho chính sách cũ/mới và phủ định; so sánh từng câu adversarial trước/sau, không chỉ nhìn điểm trung bình.
+4. Kiểm tra các cặp A/B bất đồng sau đảo vị trí bằng người đánh giá và tăng số mẫu calibration trước khi tin vào κ.
+5. Đo full request, phân biệt thời gian chờ quota với thời gian model xử lý; tối ưu hoặc đổi tầng guard khi có bằng chứng P95 vượt budget.

@@ -2,6 +2,7 @@
 import json
 import hashlib
 import math
+import os
 import sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -13,6 +14,17 @@ if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
 METRICS = ('faithfulness', 'answer_relevancy', 'context_precision', 'context_recall')
+
+
+class CompleteSentenceSegmenter:
+    """Keep short Vietnamese answers as sentences for RAGAS Faithfulness."""
+
+    def __init__(self, delegate):
+        self.delegate = delegate
+
+    def segment(self, text):
+        return [piece.strip() if piece.strip().endswith('.') else piece.strip() + '.'
+                for piece in self.delegate.segment(text) if piece.strip()]
 
 
 @dataclass
@@ -53,14 +65,21 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
         from langchain_community.embeddings import HuggingFaceEmbeddings
         from src.judge import GeminiJudge
         from src import llm as gemini_transport
-        judge = GeminiJudge()
+        configured_models = json.loads(os.getenv('RAGAS_METRIC_MODELS', '{}'))
+        if not isinstance(configured_models, dict) or any(name not in METRICS for name in configured_models):
+            raise ValueError('RAGAS_METRIC_MODELS must map known metric names to model IDs.')
+        metric_models = {name: configured_models.get(name, EVAL_MODEL) for name in METRICS}
+        if any(not isinstance(model, str) or not model for model in metric_models.values()):
+            raise ValueError('Every RAGAS evaluator model must be a nonempty ID.')
+        compact_prompts = os.getenv('RAGAS_COMPACT_PROMPTS') == '1'
         embeddings = HuggingFaceEmbeddings(model_name='sentence-transformers/all-MiniLM-L6-v2',
                                            model_kwargs={'device': 'cpu'},
                                            encode_kwargs={'normalize_embeddings': True})
         source = {'question': questions, 'answer': answers,
                   'contexts': contexts, 'ground_truth': ground_truths}
         fingerprint = hashlib.sha256(json.dumps(
-            {'source': source, 'model': EVAL_MODEL, 'embedding': 'sentence-transformers/all-MiniLM-L6-v2'},
+            {'source': source, 'models': metric_models, 'compact_prompts': compact_prompts,
+             'embedding': 'sentence-transformers/all-MiniLM-L6-v2'},
             ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
         checkpoint = Path(__file__).resolve().parents[1] / '.cache' / 'ragas_progress.json'
         scores = [{} for _ in questions]
@@ -81,11 +100,21 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
                     dataset = Dataset.from_dict({key: [values[index] for index in indices]
                                                  for key, values in source.items()})
                     metric = copy.deepcopy(template)
+                    if name == 'faithfulness':
+                        metric.sentence_segmenter = CompleteSentenceSegmenter(metric.sentence_segmenter)
+                    if compact_prompts:
+                        for attribute in ('statement_prompt', 'nli_statements_message',
+                                          'context_precision_prompt', 'context_recall_prompt',
+                                          'question_generation'):
+                            prompt = getattr(metric, attribute, None)
+                            if prompt is not None and hasattr(prompt, 'examples'):
+                                prompt.examples = []
                     # Retain RAGAS AnswerRelevancy, with one generated question
                     # per answer to respect the free-tier request budget.
                     if hasattr(metric, 'strictness'):
                         metric.strictness = 1
-                    result = evaluate(dataset, metrics=[metric], llm=judge,
+                    result = evaluate(dataset, metrics=[metric],
+                                      llm=GeminiJudge(metric_models[name]),
                                       embeddings=LangchainEmbeddingsWrapper(embeddings),
                                       run_config=RunConfig(max_workers=1, timeout=120,
                                                            max_retries=1),
@@ -125,7 +154,8 @@ def evaluate_ragas(questions, answers, contexts, ground_truths):
         return {**aggregate, 'per_question': items, 'status': 'complete' if not missing else 'partial',
                  'scores_valid': not missing, 'missing_metrics': missing, 'judge': EVAL_MODEL,
                  'embedding_model': 'sentence-transformers/all-MiniLM-L6-v2', 'ragas_version': '0.1.x',
-                 'metadata': {'evaluator_models': [EVAL_MODEL, 'sentence-transformers/all-MiniLM-L6-v2']}}
+                 'metadata': {'evaluator_models': sorted(set(metric_models.values()) |
+                                                        {'sentence-transformers/all-MiniLM-L6-v2'})}}
     except Exception as exc:
         # Do not print transport errors containing URLs/credentials.
         return {**unavailable, 'status': 'error', 'error_type': type(exc).__name__,

@@ -26,6 +26,7 @@ def main() -> None:
         "Đây là **đề xuất CI/CD**, chưa phải workflow đang chạy. Số đo lấy từ ba artifact thật trong `artifacts/`.",
         f"Thời gian chạy: RAGAS `{ragas['metadata']['created_at']}`; judge `{judge['metadata']['created_at']}`; guard `{guard['metadata']['created_at']}`.",
         f"Model generation: {', '.join(ragas['metadata']['models']['generation'])}; evaluator: {', '.join(ragas['metadata']['models']['evaluator'])}; judge: {', '.join(judge['metadata']['models']['judge'])}; guard: {', '.join(guard['metadata']['models']['guard'])}.",
+        "Phân công chấm RAGAS: Faithfulness dùng GPT-OSS 20B; Answer Relevancy và Context Precision dùng Qwen 3.8 27B; Context Recall dùng GPT-OSS 120B. Prompt evaluator giữ schema và phép tính RAGAS, lược ví dụ dài để không vượt hạn mức token Groq Free. Điểm giữa các metric cần đọc theo model tương ứng, không coi là do một judge duy nhất chấm.",
         "", "## Luồng và hành động khi lỗi", "",
         "```text\nNgười dùng → Presidio (PII) → NeMo input → RAG (BM25 + dense Qdrant → Flashrank → tài liệu nguồn → Gemini) → NeMo output → câu trả lời\n```",
         "Trong phép thử, Presidio phát hiện và ẩn CCCD/CMND, số điện thoại Việt Nam và email; NeMo input kiểm tra jailbreak, vượt phạm vi và yêu cầu dữ liệu nhạy cảm. Bản triển khai đề xuất dừng request có PII không cần thiết hoặc bị NeMo chặn, chỉ gửi nội dung đã lọc tới RAG. Nếu không đủ nguồn, trả lời chưa có căn cứ và ghi loại thất bại để bổ sung tài liệu. NeMo output kiểm tra câu trả lời có sẵn trước khi trả về.",
@@ -53,13 +54,13 @@ def main() -> None:
         "",
         f"Target input-layer P95 < {latency['budget_ms']} ms; đo được {latency['input_guard_ms']['p95']:.1f} ms, "
         f"`latency_budget_ok={str(latency['latency_budget_ok']).lower()}`. "
-        "Thời gian NeMo còn chịu giới hạn request/phút của Gemini; khoảng chờ quota được tính trong số đo vì người dùng cũng phải chờ. Cần đo thêm RAG, output rail và request toàn luồng với timestamp từng bước, ít nhất 2 warm-up và mẫu đủ cho P95 trước khi tuyên bố SLO 500 ms.",
+        "Thời gian NeMo còn chịu giới hạn request/phút của Groq; khoảng chờ quota được tính trong số đo vì người dùng cũng phải chờ. Cần đo thêm RAG, output rail và request toàn luồng với timestamp từng bước, ít nhất 2 warm-up và mẫu đủ cho P95 trước khi tuyên bố SLO 500 ms.",
         "", "## Cổng CI đề xuất", "",
         f"Điểm RAGAS trung bình hiện tại là **{overall:.3f}**; faithfulness toàn bộ "
         f"{sum(row['faithfulness'] for row in ragas['per_question']) / 50:.3f}; nhóm yếu nhất là "
         f"**{weakest}** ({ragas['per_distribution'][weakest]['avg_score']:.3f}). "
         f"Cohen’s κ = **{judge['calibration']['cohen_kappa']:.3f}**.",
-        "Đề xuất pipeline CI chạy tests offline, xác minh schema/hash bằng `python scripts/check_lab.py`, rồi trên lịch riêng chạy batch API thật. Job trả nonzero khi faithfulness <0,75, avg_score <0,65, attacks <18/20, clean <8/8 hoặc output <4/4. Đây là ngưỡng đề xuất, không phải gate đã cài; bài lab hiện yêu cầu tối thiểu attacks 15/20. Chỉ áp ngưỡng full-guard P95 <500 ms sau khi đo đúng full guard; Task 12 hiện mới đo input layers.",
+        "Đề xuất pipeline CI chạy tests offline, xác minh schema/hash bằng `python scripts/check_lab.py`, rồi trên lịch riêng chạy batch API thật. Job trả nonzero khi faithfulness <0,75, avg_score <0,65, attacks <18/20, clean <8/8 hoặc output <4/4. Đây là ngưỡng đề xuất, không phải gate đã cài; điểm faithfulness hiện tại 0,725 sẽ **không đạt** gate đề xuất này. Bài lab chỉ yêu cầu tối thiểu attacks 15/20. Chỉ áp ngưỡng full-guard P95 <500 ms sau khi đo đúng full guard; Task 12 hiện mới đo input layers.",
         "", "## Giám sát và bước cải thiện có thể kiểm chứng", "",
         "Theo dõi theo tuần: điểm RAGAS từng distribution và top lỗi, số câu không có câu trả lời, tỉ lệ chặn attack/clean/output, P50/P95/P99 mỗi lớp, lỗi 429, phiên bản model/policy và tỉ lệ bất đồng khi đảo A/B. Lưu mẫu đã ẩn PII để review thủ công; khi false positive tăng, bổ sung control cùng loại trước khi sửa prompt. Khi tài liệu đổi phiên bản, gắn ngày hiệu lực vào index và chạy lại tập 50 câu trước khi phát hành.",
         "1. Mở rộng nguồn cho câu nhiều bước và so lại context_recall từng ID yếu trong `failure_clusters.md`.",

@@ -14,10 +14,10 @@ from src.experiment_support import write_json
 Distribution = str  # "factual" | "multi_hop" | "adversarial"
 
 DIAGNOSTIC_TREE = {
-    "faithfulness":      ("LLM hallucinating", "Tighten system prompt, lower temperature"),
-    "context_recall":    ("Missing relevant chunks", "Improve chunking or add BM25"),
-    "context_precision": ("Too many irrelevant chunks", "Add reranking or metadata filter"),
-    "answer_relevancy":  ("Answer doesn't match question", "Improve prompt template"),
+    "faithfulness":      ("Câu trả lời chưa được nguồn hỗ trợ, hoặc từ chối do truy hồi thiếu nguồn.", "Đối chiếu context với đáp án chuẩn; sửa truy hồi nếu thiếu nguồn, sửa prompt sinh nếu nguồn đã đủ."),
+    "context_recall":    ("Context chưa chứa đủ dữ kiện cần thiết.", "Bổ sung đoạn/tài liệu còn thiếu rồi đo lại cùng câu hỏi."),
+    "context_precision": ("Đoạn ít liên quan đang đứng trước nguồn cần dùng.", "Rà rerank, phiên bản tài liệu và bộ lọc metadata."),
+    "answer_relevancy":  ("Câu trả lời chưa giải quyết trực tiếp câu hỏi.", "Đối chiếu từng ý được hỏi và sửa prompt trả lời đủ ý."),
 }
 
 

@@ -16,21 +16,26 @@ DAILY_QUOTA_EXHAUSTED = False
 
 def normalize_ragas_json(text: str) -> str:
     """Accept an object where RAGAS requires a one-element JSON list."""
+    source = text.strip()
+    if source.startswith('```'):
+        source = source.split('\n', 1)[-1]
+        source = source.rsplit('```', 1)[0].strip()
     try:
-        payload = json.loads(text)
+        payload = json.loads(source)
     except (TypeError, ValueError):
         return text
     if isinstance(payload, dict):
         if ("sentence_index" in payload and "simpler_statements" in payload) or (
-            "statement" in payload and "verdict" in payload
+            "statement" in payload and ("verdict" in payload or "attributed" in payload)
         ):
             return json.dumps([payload], ensure_ascii=False)
         statements = payload.get("statements")
         if isinstance(statements, list) and statements and all(
-            isinstance(item, dict) and "verdict" in item for item in statements
+            isinstance(item, dict) and ("verdict" in item or "attributed" in item)
+            for item in statements
         ):
             return json.dumps(statements, ensure_ascii=False)
-    return text
+    return source
 
 
 def _is_rate_limit(error):
@@ -60,6 +65,10 @@ def _request_with_rate_limit(api, **kwargs):
                 if 'GenerateRequestsPerDay' in str(error):
                     DAILY_QUOTA_EXHAUSTED = True
                     raise RuntimeError('Gemini daily request quota is exhausted; retry after reset.') from None
+                if LLM_PROVIDER == 'groq' and any(marker in str(error).lower() for marker in
+                                                   ('tokens per day', 'daily limit', ' tpd ')):
+                    DAILY_QUOTA_EXHAUSTED = True
+                    raise RuntimeError('Groq daily token quota is exhausted; retry after reset.') from None
                 if not _is_rate_limit(error) or attempt == 3:
                     raise
                 time.sleep(max(interval, 20 * (attempt + 1)))

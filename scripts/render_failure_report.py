@@ -27,6 +27,7 @@ def main() -> None:
         "Người thực hiện: Nguyễn Văn Duy (2A202602729). Nhóm một thành viên.",
         f"Nguồn số đo: `artifacts/ragas_50q.json`, chạy thật lúc `{meta['created_at']}`.",
         f"Model sinh: {', '.join(meta['models']['generation'])}; model chấm RAGAS: {', '.join(meta['models']['evaluator'])}.",
+        "Phân công evaluator: Faithfulness — `openai/gpt-oss-20b`; Answer Relevancy và Context Precision — `qwen/qwen3.8-27b`; Context Recall — `openai/gpt-oss-120b`; embedding RAGAS — `sentence-transformers/all-MiniLM-L6-v2`. Các prompt chấm giữ schema/tiêu chí RAGAS nhưng bỏ ví dụ dài để phù hợp hạn mức token Groq Free.",
         f"Chế độ sinh: {dict(modes)}. Có {abstentions}/50 câu trả lời đúng chuỗi “Không tìm thấy.”; hai PDF scan ảnh không vào tập 104 đoạn vì chưa OCR.",
         "Pipeline tìm bằng BM25 + dense trong Qdrant, rerank bằng Flashrank và mở rộng toàn văn tài liệu nguồn đã truy hồi để giữ quy định nằm qua ranh giới đoạn.",
         "", "## Điểm theo nhóm", "",
@@ -49,16 +50,24 @@ def main() -> None:
         )
     by_id = {row["question_id"]: row for row in report["per_question"]}
     lines += ["", "### Đối chiếu ba trường hợp đại diện", ""]
+    expected_sources = {31: "cong_tac_phi.md", 32: "dao_tao_noi_bo.md", 40: "bao_mat_su_co.md"}
     for bottom in report["bottom_10"][:3]:
         row = by_id[bottom["question_id"]]
-        sources = [context.splitlines()[0] for context in row["contexts"]]
+        sources = [context.splitlines()[0].rstrip(".") for context in row["contexts"]]
+        expected_source = expected_sources.get(row["question_id"])
+        cause = (
+            f"Nguồn chứa quy định là `{expected_source}` nhưng không xuất hiện trong ba context; "
+            "đây trước hết là lỗi truy hồi/rerank khiến model phải từ chối, không phải bằng chứng model bịa nội dung."
+            if expected_source and all(expected_source not in source for source in sources)
+            else "Cần kiểm tra từng context để tách lỗi truy hồi khỏi lỗi sinh câu trả lời."
+        )
         lines += [
             f"- **ID {row['question_id']} ({row['distribution']}, {bottom['worst_metric']})**: "
-            f"Câu hỏi: {cell(row['question'], 200)}. Câu trả lời: {cell(row['answer'], 240)}. "
-            f"Đáp án tham chiếu: {cell(row['ground_truth'], 240)}. "
-            f"Nguồn context: {', '.join(cell(source, 80) for source in sources)}. "
-            f"Đo được điểm {bottom['worst_metric']}={row[bottom['worst_metric']]:.3f}; "
-            f"cần đọc toàn bộ nguồn và kiểm tra đề xuất “{cell(bottom['suggested_fix'], 150)}”."
+            f"Câu hỏi: {cell(row['question'], 200)} Câu trả lời: {cell(row['answer'], 240)} "
+            f"Đáp án tham chiếu: {cell(row['ground_truth'], 240)} "
+            f"Nguồn context: {'; '.join(cell(source, 80) for source in sources)}. "
+            f"{cause} Điểm {bottom['worst_metric']}={row[bottom['worst_metric']]:.3f}; "
+            f"hướng sửa: {cell(bottom['suggested_fix'], 150)}"
         ]
     lines += ["", "## Ma trận và nhóm yếu", "",
               "Mỗi câu được đếm một lần theo chỉ số thấp nhất, không coi toàn bộ 50 câu là lỗi.",
@@ -78,7 +87,7 @@ def main() -> None:
         f"Adversarial đạt {distribution['adversarial']['avg_score']:.3f} so với factual "
         f"{distribution['factual']['avg_score']:.3f} và multi_hop {distribution['multi_hop']['avg_score']:.3f}. "
         "So sánh này chỉ phản ánh tập 10 câu adversarial, không chứng minh pipeline đã nhận ra mọi bẫy phiên bản hay phủ định.",
-        "Câu trả lời từ chối có thể nhận faithfulness cao vì không tạo mệnh đề để đối chiếu; phải đọc cùng answer_relevancy, context_precision và context_recall. Không dùng faithfulness riêng lẻ để kết luận chất lượng.",
+        "Trong bộ đo này, các câu từ chối thiếu căn cứ nhận điểm thấp; cách một evaluator chấm câu từ chối có thể khác nhau, nên phải đọc cùng answer_relevancy, context_precision và context_recall. Không dùng faithfulness riêng lẻ để kết luận chất lượng.",
         "Ưu tiên tiếp theo: truy hồi nhiều nguồn hơn cho câu nhiều bước, kiểm tra phiên bản chính sách hiện hành, OCR hai PDF scan ảnh, rồi chạy lại cùng 50 câu và so từng ID với điểm trước khi kết luận cải thiện.",
     ]
     (root / "doc/reports/failure_clusters.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
