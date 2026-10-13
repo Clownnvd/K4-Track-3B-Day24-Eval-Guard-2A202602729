@@ -4,7 +4,7 @@ Tên nhóm: Nguyễn Văn Duy (bài cá nhân theo xác nhận của người n�
 
 Repo nộp: https://github.com/Clownnvd/K4-Track-3B-Day24-Eval-Guard-2A202602729
 
-Người nộp: Nguyễn Văn Duy, MSSV 2A202602729. Link repo được nộp trên VLearn lúc 22:51 ngày 12/10/2026 (mã BN-261012-40847). Commit dùng để chấm là HEAD của nhánh main trong repo trên sau khi hoàn thiện; ghi lại SHA cụ thể ở bản cập nhật cuối.
+Người nộp: Nguyễn Văn Duy, MSSV 2A202602729. Link repo được nộp trên VLearn lúc 22:51 ngày 12/10/2026 (mã BN-261012-40847). Commit chứa đủ code, ba artifact và ba báo cáo để chấm: `f49358d992621a9f466eff78ae5147cfee0730aa`. Bản ghi TEAM/STATUS này được bổ sung ở commit kế tiếp.
 
 ## Thành viên và phân công
 
